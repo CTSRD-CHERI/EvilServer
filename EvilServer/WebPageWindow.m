@@ -29,25 +29,35 @@
 #import <WebKit/WebKit.h>
 #import "WebPageWindow.h"
 
-static NSMutableSet *windows;
 @implementation WebPageWindow
-@synthesize view;
-+ (void)initialize
 {
-	windows = [NSMutableSet new];
+	// The object is self-owned (creating a retain cycle) until we decide that the window should go away.
+	id retainCycle;
+}
+@synthesize view;
+- (void)timeOut: (id)sender
+{
+	[[self window] performClose: self];
 }
 - (void)willClose: (NSNotification*)aNotification
 {
-	[windows removeObject: self];
+	retainCycle = nil;
 }
 - (void)loadPage: (NSString*)page
 {
 	[[view mainFrame] loadHTMLString: page baseURL: nil];
 	[[self window] makeKeyAndOrderFront: self];
-	[windows addObject: self];
+	retainCycle = self;
+	// When the window closes, get a notification so that we can clean up - we'll never re-open windows after they close.
 	[[NSNotificationCenter defaultCenter] addObserver: self
 											 selector: @selector(willClose:)
 												 name: NSWindowWillCloseNotification
 											   object: [self window]];
+	// Fire a timer after 10 seconds and close the window so that the screen doesn't get cluttered.
+	[NSTimer scheduledTimerWithTimeInterval: 10
+								target: self
+							  selector: @selector(timeOut:)
+							  userInfo: nil
+							   repeats: NO];
 }
 @end
